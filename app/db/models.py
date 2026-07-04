@@ -1,6 +1,8 @@
 from tortoise import fields
 from tortoise.models import Model
 
+from app.constants import DEFAULT_TIMEZONE
+
 
 class Persona(Model):
     id = fields.IntField(primary_key=True)
@@ -24,7 +26,7 @@ class DiaryEntry(Model):
     persona: fields.ForeignKeyRelation[Persona] = fields.ForeignKeyField(
         "models.Persona", related_name="diary_entries"
     )
-    date = fields.DateField()  # UTC+8 day; set from get_utc8_now().date()
+    date = fields.DateField()  # the user's local day; set from get_user_now(user).date()
     content = fields.TextField()
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
@@ -43,8 +45,9 @@ class User(Model):
     proactive_opt_in = fields.BooleanField(default=False)
     last_proactive_at = fields.DatetimeField(null=True)
     last_chat_at = fields.DatetimeField(null=True)
-    wake_time = fields.TimeField(null=True)  # UTC+8 wall clock
-    sleep_time = fields.TimeField(null=True)  # UTC+8 wall clock
+    timezone = fields.CharField(max_length=64, default=DEFAULT_TIMEZONE)  # IANA name
+    wake_time = fields.TimeField(null=True)  # user-local wall clock
+    sleep_time = fields.TimeField(null=True)  # user-local wall clock
     last_morning_greeting = fields.DateField(null=True)  # date of the wake moment greeted
     last_afternoon_greeting = fields.DateField(null=True)
     last_night_greeting = fields.DateField(null=True)  # date of the sleep moment greeted

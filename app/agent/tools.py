@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Any
 
 from claude_agent_sdk import create_sdk_mcp_server, tool
 
-from app.constants import UTC8
 from app.services.memory import (
     DIARY_RANGE_MAX_DAYS,
     add_fact,
@@ -13,7 +12,7 @@ from app.services.memory import (
     get_diary_entries,
     save_schedule,
 )
-from app.utils.misc import get_utc8_now
+from app.utils.misc import get_user_now, get_user_tz
 
 if TYPE_CHECKING:
     from claude_agent_sdk.types import McpSdkServerConfig
@@ -65,8 +64,8 @@ def create_memory_server(user: User, persona: Persona | None = None) -> McpSdkSe
     @tool(
         "set_reminder",
         "Set a reminder to deliver to the user at a specific time. "
-        "`due_at` must be ISO-8601 (YYYY-MM-DD HH:MM) in UTC+8; compute it from the "
-        "current time given in your instructions. `content` is the reminder message.",
+        "`due_at` must be ISO-8601 (YYYY-MM-DD HH:MM) in the user's local timezone; compute "
+        "it from the current time given in your instructions. `content` is the reminder message.",
         {"content": str, "due_at": str},
     )
     async def set_reminder(args: dict[str, Any]) -> dict[str, Any]:
@@ -78,8 +77,8 @@ def create_memory_server(user: User, persona: Persona | None = None) -> McpSdkSe
                 "is_error": True,
             }
         if due_at.tzinfo is None:
-            due_at = due_at.replace(tzinfo=UTC8)
-        if due_at <= get_utc8_now():
+            due_at = due_at.replace(tzinfo=get_user_tz(user))
+        if due_at <= get_user_now(user):
             return {
                 "content": [{"type": "text", "text": "That time is in the past."}],
                 "is_error": True,
@@ -95,12 +94,14 @@ def create_memory_server(user: User, persona: Persona | None = None) -> McpSdkSe
     @tool(
         "set_schedule",
         "Save the user's usual wake-up time and/or bedtime when you learn them. "
-        "Times must be HH:MM (24-hour) in UTC+8; pass an empty string for one "
-        "you do not know. Knowing these lets you greet the user good morning and "
-        "good night at the right moments.",
+        "Times must be HH:MM (24-hour) in the user's local timezone; pass an empty "
+        "string for one you do not know. Knowing these lets you greet the user good "
+        "morning and good night at the right moments.",
         {"wake_time": str, "sleep_time": str},
     )
     async def set_schedule(args: dict[str, Any]) -> dict[str, Any]:
+        # TIMETZ needs a concrete offset; readers only use the wall-clock hour/minute.
+        local_tz = datetime.timezone(get_user_now(user).utcoffset() or datetime.timedelta())
         times: dict[str, datetime.time | None] = {}
         for key in ("wake_time", "sleep_time"):
             raw = str(args.get(key) or "").strip()
@@ -108,7 +109,7 @@ def create_memory_server(user: User, persona: Persona | None = None) -> McpSdkSe
                 times[key] = None
                 continue
             try:
-                times[key] = datetime.time.fromisoformat(raw).replace(tzinfo=UTC8)
+                times[key] = datetime.time.fromisoformat(raw).replace(tzinfo=local_tz)
             except ValueError:
                 return {
                     "content": [{"type": "text", "text": "Invalid time, use HH:MM."}],
@@ -124,12 +125,12 @@ def create_memory_server(user: User, persona: Persona | None = None) -> McpSdkSe
 
     tools = [remember_fact, remember_date, set_reminder, set_schedule]
     if persona is not None:
-        tools += _create_diary_tools(persona)
+        tools += _create_diary_tools(user, persona)
     return create_sdk_mcp_server(name="memory", version="1.0.0", tools=tools)
 
 
-def _create_diary_tools(persona: Persona) -> list:
-    """Build diary tools scoped to `persona`."""
+def _create_diary_tools(user: User, persona: Persona) -> list:
+    """Build diary tools scoped to `persona`; `user` anchors the local diary day."""
 
     @tool(
         "write_diary",
@@ -140,7 +141,7 @@ def _create_diary_tools(persona: Persona) -> list:
         {"content": str},
     )
     async def write_diary(args: dict[str, Any]) -> dict[str, Any]:
-        await append_diary(persona, args["content"])
+        await append_diary(persona, args["content"], get_user_now(user).date())
         return {"content": [{"type": "text", "text": "Diary updated."}]}
 
     @tool(

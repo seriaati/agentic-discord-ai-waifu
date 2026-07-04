@@ -38,6 +38,6 @@ Flow: Discord events → cogs (`app/cogs/`) → agent layer (`app/agent/`) → s
 
 ## Conventions
 
-- Timezone: the app thinks in **UTC+8** (`get_utc8_now` in `app/utils/misc.py`, `UTC8` in `app/constants.py`); DB stores tz-aware datetimes (`use_tz=True`, timezone `Asia/Taipei` in `app/db/conn.py`). Diary dates and reminder times are UTC+8.
+- Timezone: user-facing wall-clock time is **per-user** (`User.timezone`, IANA name, default `Asia/Taipei`; set via `/me timezone`). Use `get_user_now`/`get_user_tz` (`app/utils/misc.py`) for anything user-scoped — diary days, reminder input, greeting windows, quiet hours, prompt time context; `get_utc8_now` remains for non-user-scoped absolute timestamps. DB stores tz-aware datetimes (`use_tz=True`, timezone `Asia/Taipei` in `app/db/conn.py`); `wake_time`/`sleep_time` are user-local wall clock.
 - User-facing bot text (error fallbacks, proactive messages) is Traditional Chinese.
 - Discord limits are enforced at call sites via module constants (`DISCORD_MESSAGE_LIMIT = 2000`, webhook username ≤ 80, etc.) — keep doing this when adding send paths.

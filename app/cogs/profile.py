@@ -1,4 +1,5 @@
 import datetime
+import zoneinfo
 from typing import TYPE_CHECKING
 
 from discord import app_commands
@@ -15,6 +16,8 @@ if TYPE_CHECKING:
 CHOICE_NAME_LIMIT = 100  # Discord autocomplete choice name limit
 CHOICE_LIMIT = 25  # Discord autocomplete choice count limit
 FIELD_VALUE_LIMIT = 1024  # Discord embed field value limit
+
+TIMEZONES = sorted(zoneinfo.available_timezones())
 
 
 class ProfileCog(commands.Cog):
@@ -49,6 +52,33 @@ class ProfileCog(commands.Cog):
         await add_important_date(user, label, parsed)
         embed = DefaultEmbed(title="已記住", description=f"- {label}: {parsed.isoformat()}")
         await i.response.send_message(embed=embed, ephemeral=True)
+
+    @me.command(name="timezone", description="設定你的時區 (影響提醒、問候與日記的時間)")
+    @app_commands.describe(timezone="IANA 時區名稱, 例如: Asia/Taipei")
+    async def me_timezone(self, i: Interaction, timezone: str) -> None:
+        try:
+            tz = zoneinfo.ZoneInfo(timezone)
+        except zoneinfo.ZoneInfoNotFoundError, ValueError:
+            embed = ErrorEmbed(
+                title="無效的時區", description="請從自動完成清單中選擇, 例如: Asia/Taipei"
+            )
+            await i.response.send_message(embed=embed, ephemeral=True)
+            return
+        user = await get_or_create_user(i.user.id)
+        user.timezone = timezone
+        await user.save(update_fields=["timezone"])
+        embed = DefaultEmbed(
+            title="時區已設定",
+            description=f"- {timezone}\n你的當地時間: {datetime.datetime.now(tz):%Y-%m-%d %H:%M}",
+        )
+        await i.response.send_message(embed=embed, ephemeral=True)
+
+    @me_timezone.autocomplete("timezone")
+    async def me_timezone_autocomplete(
+        self, _: Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        matches = [tz for tz in TIMEZONES if current.lower() in tz.lower()]
+        return [app_commands.Choice(name=tz, value=tz) for tz in matches[:CHOICE_LIMIT]]
 
     @me.command(name="show", description="查看已儲存的個人資料")
     async def me_show(self, i: Interaction) -> None:

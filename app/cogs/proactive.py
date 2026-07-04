@@ -13,7 +13,7 @@ from app.db.models import Observation, User
 from app.services.memory import get_or_create_user
 from app.services.webhook import send_as_persona
 from app.types import Interaction  # noqa: TC001
-from app.utils.misc import get_utc8_now
+from app.utils.misc import get_user_now, get_user_tz, get_utc8_now
 
 if TYPE_CHECKING:
     from app.agent.proactive import TimeTriggerKind
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from app.db.models import Persona
 
 LOOP_MINUTES = 15
-QUIET_HOURS_START = 23  # UTC+8
+QUIET_HOURS_START = 23  # user-local wall clock
 QUIET_HOURS_END = 9
 OBSERVATION_MAX_AGE = datetime.timedelta(hours=2)
 COOLDOWN = datetime.timedelta(hours=6)
@@ -33,7 +33,7 @@ MINUTES_PER_DAY = 24 * 60
 GREETING_WINDOW_MINUTES = 60  # greet within an hour of wake/sleep time
 RECENT_CHAT_GRACE = datetime.timedelta(hours=1)  # no greeting if they just chatted
 CHECKIN_MIN_IDLE = datetime.timedelta(hours=3)
-AFTERNOON_START_HOUR = 12  # UTC+8
+AFTERNOON_START_HOUR = 12  # user-local wall clock
 AFTERNOON_END_HOUR = 14
 AFTERNOON_CHANCE = 0.05  # per tick -> a few afternoons per week
 CHECKIN_CHANCE = 0.01  # per tick -> roughly once every couple of days
@@ -50,6 +50,10 @@ def _minute_of_day(t: datetime.time) -> int:
     return t.hour * 60 + t.minute
 
 
+def _is_quiet(local_now: datetime.datetime) -> bool:
+    return local_now.hour >= QUIET_HOURS_START or local_now.hour < QUIET_HOURS_END
+
+
 class ProactiveCog(commands.Cog):
     proactive = app_commands.Group(name="proactive", description="管理主動訊息功能")
 
@@ -63,13 +67,11 @@ class ProactiveCog(commands.Cog):
     @tasks.loop(minutes=LOOP_MINUTES)
     async def tick(self) -> None:
         now = get_utc8_now()
-        quiet = now.hour >= QUIET_HOURS_START or now.hour < QUIET_HOURS_END
 
-        # Schedule-anchored greetings run even in quiet hours (they follow the
-        # user's own wake/sleep times); everything else respects them.
-        await self._time_based_pass(now, quiet=quiet)
-        if quiet:
-            return
+        # Quiet hours are each user's own local night. Schedule-anchored greetings
+        # run even then (they follow the user's wake/sleep times); everything else
+        # respects them.
+        await self._time_based_pass(now)
 
         # Oldest unhandled observation first -> deterministic user order.
         observations = (
@@ -89,7 +91,8 @@ class ProactiveCog(commands.Cog):
         selected = [
             user
             for user in candidates.values()
-            if user.last_proactive_at is None or now - user.last_proactive_at >= COOLDOWN
+            if (user.last_proactive_at is None or now - user.last_proactive_at >= COOLDOWN)
+            and not _is_quiet(get_user_now(user))
         ][:USERS_PER_TICK]
 
         for user in selected:
@@ -102,12 +105,12 @@ class ProactiveCog(commands.Cog):
     async def before_tick(self) -> None:
         await self.bot.wait_until_ready()
 
-    async def _time_based_pass(self, now: datetime.datetime, *, quiet: bool) -> None:
+    async def _time_based_pass(self, now: datetime.datetime) -> None:
         users = await User.filter(
             proactive_opt_in=True, last_persona_id__isnull=False
         ).prefetch_related("last_persona")
         for user in users:
-            trigger = self._due_time_trigger(user, now, quiet=quiet)
+            trigger = self._due_time_trigger(user, now.astimezone(get_user_tz(user)))
             if trigger is None:
                 continue
             kind, mark_date = trigger
@@ -117,9 +120,12 @@ class ProactiveCog(commands.Cog):
                 logger.exception(f"Time-based proactive failed for user {user.discord_id}")
 
     def _due_time_trigger(
-        self, user: User, now: datetime.datetime, *, quiet: bool
+        self, user: User, now: datetime.datetime
     ) -> tuple[TimeTriggerKind, datetime.date | None] | None:
-        """Pick the time-based trigger due for `user`, with the date to mark it done."""
+        """Pick the time-based trigger due for `user`, with the date to mark it done.
+
+        `now` must be in the user's local timezone; windows and dates are local.
+        """
         if user.last_chat_at is not None and now - user.last_chat_at < RECENT_CHAT_GRACE:
             return None
         minute = _minute_of_day(now.time())
@@ -149,7 +155,7 @@ class ProactiveCog(commands.Cog):
 
         cooldown_ok = user.last_proactive_at is None or now - user.last_proactive_at >= COOLDOWN
         idle_ok = user.last_chat_at is None or now - user.last_chat_at >= CHECKIN_MIN_IDLE
-        if not quiet and cooldown_ok and idle_ok and random.random() < CHECKIN_CHANCE:
+        if not _is_quiet(now) and cooldown_ok and idle_ok and random.random() < CHECKIN_CHANCE:
             return "checkin", None
 
         return None

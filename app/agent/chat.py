@@ -8,7 +8,7 @@ from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, McpServerConfi
 from app.agent.tools import DIARY_TOOL_NAMES, MEMORY_TOOL_NAMES, create_memory_server
 from app.core.settings import SETTINGS
 from app.services.memory import build_memory_context
-from app.utils.misc import get_utc8_now, to_traditional_chinese
+from app.utils.misc import get_user_now, to_traditional_chinese
 
 if TYPE_CHECKING:
     from app.db.models import Persona, User
@@ -63,7 +63,8 @@ MEMORY_INSTRUCTIONS = (
     "user states as their norm, never for one-off plans like tonight's bedtime or "
     "tomorrow's alarm. Do not announce that you are "
     "saving memories; just keep chatting naturally. When the user asks to be reminded of "
-    "something, call the set_reminder tool with the absolute UTC+8 time, then confirm briefly."
+    "something, call the set_reminder tool with the absolute time in the user's local "
+    "timezone, then confirm briefly."
 )
 
 DIARY_INSTRUCTIONS = (
@@ -105,7 +106,10 @@ async def _compose_prompt(
         memory_context = await build_memory_context(user, persona)
         if memory_context:
             context_parts.append(memory_context)
-        context_parts.append(f"Current time: {get_utc8_now():%Y-%m-%d %H:%M} (UTC+8).")
+        context_parts.append(
+            f"Current time: {get_user_now(user):%Y-%m-%d %H:%M} "
+            f"(the user's local time, {user.timezone})."
+        )
     if history:
         context_parts.append(
             "Recent messages in this channel (oldest first), in `Name: message` format. "

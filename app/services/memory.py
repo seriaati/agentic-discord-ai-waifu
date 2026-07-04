@@ -1,7 +1,7 @@
 import datetime
 
 from app.db.models import DiaryEntry, Fact, ImportantDate, Observation, Persona, Reminder, User
-from app.utils.misc import get_utc8_now
+from app.utils.misc import get_user_now
 
 FACT_LIMIT = 20
 OBSERVATION_LIMIT = 10
@@ -46,9 +46,11 @@ async def add_observation(user: User, kind: str, summary: str) -> Observation:
     return await Observation.create(user=user, kind=kind, summary=summary)
 
 
-async def append_diary(persona: Persona, content: str) -> DiaryEntry:
-    """Extend today's diary entry for `persona`, creating it if this is the first write."""
-    today = get_utc8_now().date()
+async def append_diary(persona: Persona, content: str, today: datetime.date) -> DiaryEntry:
+    """Extend the `today` diary entry for `persona`, creating it if this is the first write.
+
+    `today` is the user's local date (see `get_user_now`).
+    """
     entry = await DiaryEntry.get_or_none(persona=persona, date=today)
     if entry is None:
         return await DiaryEntry.create(persona=persona, date=today, content=content)
@@ -90,7 +92,7 @@ async def build_memory_context(user: User, persona: Persona | None = None) -> st
     if not (facts or dates or observations or diary_entries or user.wake_time or user.sleep_time):
         return ""
 
-    today = get_utc8_now().date()
+    today = get_user_now(user).date()
     sections: list[str] = []
     if user.wake_time or user.sleep_time:
         parts: list[str] = []
@@ -98,7 +100,9 @@ async def build_memory_context(user: User, persona: Persona | None = None) -> st
             parts.append(f"usually wakes up around {user.wake_time:%H:%M}")
         if user.sleep_time:
             parts.append(f"usually goes to sleep around {user.sleep_time:%H:%M}")
-        sections.append(f"This user's daily schedule: {', '.join(parts)} (UTC+8).")
+        sections.append(
+            f"This user's daily schedule: {', '.join(parts)} (their local time, {user.timezone})."
+        )
     if facts:
         lines = "\n".join(f"- {fact.content}" for fact in facts)
         sections.append(f"Known facts about this user (newest first):\n{lines}")

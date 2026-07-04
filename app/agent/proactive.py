@@ -5,7 +5,7 @@ from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from app.agent.chat import WEB_TOOL_NAMES
 from app.core.settings import SETTINGS
 from app.services.memory import build_memory_context
-from app.utils.misc import get_utc8_now, to_traditional_chinese
+from app.utils.misc import get_user_now, get_utc8_now, to_traditional_chinese
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -113,5 +113,8 @@ async def generate_time_based_message(
 ) -> str | None:
     """Generate a greeting/check-in for `user`; None means the agent chose to skip."""
     system_prompt = await _build_system_prompt(user, persona, TIME_TRIGGER_INSTRUCTIONS[kind])
-    prompt = f"Current time: {get_utc8_now():%Y-%m-%d %H:%M (%A)} (UTC+8)."
+    prompt = (
+        f"Current time: {get_user_now(user):%Y-%m-%d %H:%M (%A)} "
+        f"(the user's local time, {user.timezone})."
+    )
     return await _query_or_skip(system_prompt, prompt)
