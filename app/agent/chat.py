@@ -68,7 +68,8 @@ MEMORY_INSTRUCTIONS = (
 
 DIARY_INSTRUCTIONS = (
     "\n\nYou keep a private diary about you and this user; your recent entries may appear "
-    "above. When something noteworthy happens in the conversation — an event in their life, "
+    "in the conversation context. When something noteworthy happens in the conversation — "
+    "an event in their life, "
     "a strong mood, something you did together — call write_diary to extend today's entry. "
     "Use read_diary to look up older days when the past is relevant. Never announce that you "
     "are writing in or reading your diary."
@@ -90,6 +91,39 @@ async def _wait_for_browser_server(client: ClaudeSDKClient) -> None:
         await asyncio.sleep(0.2)
 
 
+async def _compose_prompt(
+    prompt: str, user: User | None, persona: Persona | None, history: str | None
+) -> str:
+    """Prepend dynamic context (memory, time, history) to the user message.
+
+    This context deliberately lives in the user prompt, not the system prompt, so
+    the system prompt stays byte-identical across turns and prompt caching can
+    kick in.
+    """
+    context_parts: list[str] = []
+    if user is not None:
+        memory_context = await build_memory_context(user, persona)
+        if memory_context:
+            context_parts.append(memory_context)
+        context_parts.append(f"Current time: {get_utc8_now():%Y-%m-%d %H:%M} (UTC+8).")
+    if history:
+        context_parts.append(
+            "Recent messages in this channel (oldest first), in `Name: message` format. "
+            "The name prefixes are transcript formatting only.\n"
+            f"<history>\n{history}\n</history>"
+        )
+    if not context_parts:
+        return prompt
+
+    context = "\n\n".join(context_parts)
+    return (
+        f"{context}\n\n"
+        f"The user's new message:\n{prompt}\n\n"
+        "Reply with your message content only. Do NOT prefix your reply with your "
+        "name or any `Name:` label."
+    )
+
+
 async def generate_reply(
     prompt: str,
     *,
@@ -98,15 +132,7 @@ async def generate_reply(
     history: str | None = None,
 ) -> str:
     """Generate a chat reply for a single user message."""
-    if history:
-        prompt = (
-            "Recent messages in this channel (oldest first), in `Name: message` format. "
-            "The name prefixes are transcript formatting only.\n"
-            f"<history>\n{history}\n</history>\n\n"
-            f"The user's new message:\n{prompt}\n\n"
-            "Reply with your message content only. Do NOT prefix your reply with your "
-            "name or any `Name:` label."
-        )
+    prompt = await _compose_prompt(prompt, user, persona, history)
 
     system_prompt = SYSTEM_PROMPT
     if persona is not None:
@@ -118,10 +144,6 @@ async def generate_reply(
             system_prompt += f"\n\nImportant facts about you:\n{persona.facts}"
 
     if user is not None:
-        memory_context = await build_memory_context(user, persona)
-        if memory_context:
-            system_prompt += f"\n\n{memory_context}"
-        system_prompt += f"\n\nCurrent time: {get_utc8_now():%Y-%m-%d %H:%M} (UTC+8)."
         system_prompt += MEMORY_INSTRUCTIONS
         allowed_tools = [*MEMORY_TOOL_NAMES, *WEB_TOOL_NAMES, *BROWSER_TOOL_NAMES]
         if persona is not None:
