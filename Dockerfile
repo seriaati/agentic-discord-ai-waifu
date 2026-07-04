@@ -23,9 +23,32 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Final stage: lean image without uv
 FROM python:3.14-slim-bookworm
 
-# Non-root user for security
+# Node.js runtime for the Playwright MCP server (browser tools)
+COPY --from=node:22-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:22-bookworm-slim /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+
+# Playwright MCP server + Chromium. Browsers must be installed via the MCP's
+# own nested playwright (it pins an alpha build whose browser revision differs
+# from stable), into a shared path readable by the non-root user.
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/share/ms-playwright
+RUN npm install -g @playwright/mcp \
+    && node /usr/local/lib/node_modules/@playwright/mcp/node_modules/playwright/cli.js \
+        install --with-deps chromium \
+    && npm cache clean --force \
+    && rm -rf /var/lib/apt/lists/*
+
+# --browser chromium: use the playwright-managed Chromium above (the default
+# "chrome" channel expects a system Google Chrome install).
+# --no-sandbox: Chromium can't sandbox as an unprivileged user under Docker's
+# default seccomp profile.
+ENV BROWSER_MCP_COMMAND="playwright-mcp --browser chromium --no-sandbox"
+
+# Non-root user for security. Needs a real home: Chromium's crashpad handler
+# aborts the whole browser without a writable $HOME.
 RUN groupadd --system --gid 999 botuser \
-    && useradd --system --gid 999 --uid 999 --no-create-home botuser \
+    && useradd --system --gid 999 --uid 999 --create-home botuser \
     && mkdir -p /app/logs \
     && chown botuser:botuser /app/logs
 

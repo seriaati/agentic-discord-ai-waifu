@@ -9,7 +9,5 @@ if TYPE_CHECKING:
 
 
 class CommandTree(app_commands.CommandTree):
-    async def on_error(
-        self, i: Interaction, error: app_commands.AppCommandError
-    ) -> None:
+    async def on_error(self, i: Interaction, error: app_commands.AppCommandError) -> None:
         await handle_error(i, error)

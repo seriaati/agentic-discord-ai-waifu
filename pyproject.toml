@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "anyio>=4.12.1",
+    "claude-agent-sdk>=0.2.110",
     "discord-py[speed]>=2.7.1",
     "jishaku>=2.6.3",
     "loguru>=0.7.3",
@@ -23,6 +24,8 @@ reportUnnecessaryContains = true
 reportUnnecessaryIsInstance = true
 reportUnnecessaryTypeIgnoreComment = true
 typeCheckingMode = "standard"
+venv = ".venv"
+venvPath = "."
 
 [tool.tortoise]
 tortoise_orm = "app.db.conn.TORTOISE_ORM"

@@ -10,16 +10,12 @@ if TYPE_CHECKING:
 
 
 class LayoutView(ui.LayoutView):
-    async def on_error(
-        self, i: Interaction, error: Exception, _item: ui.Item[Any]
-    ) -> None:
+    async def on_error(self, i: Interaction, error: Exception, _item: ui.Item[Any]) -> None:
         return await handle_error(i, error)
 
 
 class View(ui.View):
-    async def on_error(
-        self, i: Interaction, error: Exception, _item: ui.Item[Any]
-    ) -> None:
+    async def on_error(self, i: Interaction, error: Exception, _item: ui.Item[Any]) -> None:
         return await handle_error(i, error)
 
 
@@ -32,9 +28,7 @@ class Container[V: LayoutView](ui.Container):
         spoiler: bool = False,
         id: int | None = None,  # noqa: A002
     ) -> None:
-        super().__init__(
-            *children, accent_colour=discord.Color.blurple(), spoiler=spoiler, id=id
-        )
+        super().__init__(*children, accent_colour=discord.Color.blurple(), spoiler=spoiler, id=id)
 
 
 class Modal(ui.Modal):

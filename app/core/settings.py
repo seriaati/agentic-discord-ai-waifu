@@ -8,8 +8,16 @@ class Settings(BaseSettings):
     discord_token: str
     env: Literal["dev", "prod"]
 
+    anthropic_api_key: str
+    chat_model: str = "claude-sonnet-4-6"
+    # Playwright MCP browser tools; requires Node.js (npx) on the host.
+    browser_enabled: bool = False
+    # Command that launches the Playwright MCP server. The Docker image
+    # overrides this to run its preinstalled copy with --no-sandbox.
+    browser_mcp_command: str = "npx @playwright/mcp@latest"
+
     postgres_password: str
-    postgres_db: str = "bot"
+    postgres_db: str = "agentic-discord-ai-waifu"
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_user: str = "postgres"

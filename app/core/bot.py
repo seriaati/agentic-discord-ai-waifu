@@ -9,6 +9,9 @@ from app.core.command_tree import CommandTree
 class MyBot(commands.Bot):
     def __init__(self) -> None:
         intents = discord.Intents.default()
+        intents.members = True
+        intents.message_content = True
+        intents.presences = True
         super().__init__(
             command_prefix=commands.when_mentioned, intents=intents, tree_cls=CommandTree
         )
