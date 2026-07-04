@@ -41,6 +41,12 @@ class User(Model):
     observe_opt_in = fields.BooleanField(default=False)
     proactive_opt_in = fields.BooleanField(default=False)
     last_proactive_at = fields.DatetimeField(null=True)
+    last_chat_at = fields.DatetimeField(null=True)
+    wake_time = fields.TimeField(null=True)  # UTC+8 wall clock
+    sleep_time = fields.TimeField(null=True)  # UTC+8 wall clock
+    last_morning_greeting = fields.DateField(null=True)  # date of the wake moment greeted
+    last_afternoon_greeting = fields.DateField(null=True)
+    last_night_greeting = fields.DateField(null=True)  # date of the sleep moment greeted
     created_at = fields.DatetimeField(auto_now_add=True)
 
 

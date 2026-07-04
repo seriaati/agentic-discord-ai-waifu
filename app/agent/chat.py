@@ -52,7 +52,8 @@ BROWSER_TOOL_NAMES = ["mcp__playwright"] if SETTINGS.browser_enabled else []
 MEMORY_INSTRUCTIONS = (
     "\n\nWhen the user states a lasting preference or personal fact about themselves, "
     "call the remember_fact tool to save it. When they mention a birthday, anniversary, "
-    "or other important date, call the remember_date tool. Do not announce that you are "
+    "or other important date, call the remember_date tool. When they mention their usual "
+    "wake-up time or bedtime, call the set_schedule tool. Do not announce that you are "
     "saving memories; just keep chatting naturally. When the user asks to be reminded of "
     "something, call the set_reminder tool with the absolute UTC+8 time, then confirm briefly."
 )

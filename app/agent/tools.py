@@ -11,6 +11,7 @@ from app.services.memory import (
     add_reminder,
     append_diary,
     get_diary_entries,
+    save_schedule,
 )
 from app.utils.misc import get_utc8_now
 
@@ -23,6 +24,7 @@ MEMORY_TOOL_NAMES = [
     "mcp__memory__remember_fact",
     "mcp__memory__remember_date",
     "mcp__memory__set_reminder",
+    "mcp__memory__set_schedule",
 ]
 
 DIARY_TOOL_NAMES = ["mcp__memory__write_diary", "mcp__memory__read_diary"]
@@ -90,7 +92,37 @@ def create_memory_server(user: User, persona: Persona | None = None) -> McpSdkSe
         await add_reminder(user, args["content"], due_at, persona)
         return {"content": [{"type": "text", "text": f"Reminder set for {due_at:%Y-%m-%d %H:%M}."}]}
 
-    tools = [remember_fact, remember_date, set_reminder]
+    @tool(
+        "set_schedule",
+        "Save the user's usual wake-up time and/or bedtime when you learn them. "
+        "Times must be HH:MM (24-hour) in UTC+8; pass an empty string for one "
+        "you do not know. Knowing these lets you greet the user good morning and "
+        "good night at the right moments.",
+        {"wake_time": str, "sleep_time": str},
+    )
+    async def set_schedule(args: dict[str, Any]) -> dict[str, Any]:
+        times: dict[str, datetime.time | None] = {}
+        for key in ("wake_time", "sleep_time"):
+            raw = str(args.get(key) or "").strip()
+            if not raw:
+                times[key] = None
+                continue
+            try:
+                times[key] = datetime.time.fromisoformat(raw).replace(tzinfo=UTC8)
+            except ValueError:
+                return {
+                    "content": [{"type": "text", "text": "Invalid time, use HH:MM."}],
+                    "is_error": True,
+                }
+        if times["wake_time"] is None and times["sleep_time"] is None:
+            return {
+                "content": [{"type": "text", "text": "Provide at least one time."}],
+                "is_error": True,
+            }
+        await save_schedule(user, times["wake_time"], times["sleep_time"])
+        return {"content": [{"type": "text", "text": "Schedule saved."}]}
+
+    tools = [remember_fact, remember_date, set_reminder, set_schedule]
     if persona is not None:
         tools += _create_diary_tools(persona)
     return create_sdk_mcp_server(name="memory", version="1.0.0", tools=tools)

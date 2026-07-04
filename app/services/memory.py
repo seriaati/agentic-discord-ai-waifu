@@ -18,6 +18,20 @@ async def add_fact(user: User, content: str) -> Fact:
     return await Fact.create(user=user, content=content)
 
 
+async def save_schedule(
+    user: User, wake_time: datetime.time | None, sleep_time: datetime.time | None
+) -> None:
+    updates: list[str] = []
+    if wake_time is not None:
+        user.wake_time = wake_time
+        updates.append("wake_time")
+    if sleep_time is not None:
+        user.sleep_time = sleep_time
+        updates.append("sleep_time")
+    if updates:
+        await user.save(update_fields=updates)
+
+
 async def add_important_date(user: User, label: str, date: datetime.date) -> ImportantDate:
     return await ImportantDate.create(user=user, label=label, date=date)
 
@@ -73,11 +87,18 @@ async def build_memory_context(user: User, persona: Persona | None = None) -> st
         diary_entries = (
             await DiaryEntry.filter(persona=persona).order_by("-date").limit(DIARY_CONTEXT_DAYS)
         )[::-1]
-    if not (facts or dates or observations or diary_entries):
+    if not (facts or dates or observations or diary_entries or user.wake_time or user.sleep_time):
         return ""
 
     today = get_utc8_now().date()
     sections: list[str] = []
+    if user.wake_time or user.sleep_time:
+        parts: list[str] = []
+        if user.wake_time:
+            parts.append(f"usually wakes up around {user.wake_time:%H:%M}")
+        if user.sleep_time:
+            parts.append(f"usually goes to sleep around {user.sleep_time:%H:%M}")
+        sections.append(f"This user's daily schedule: {', '.join(parts)} (UTC+8).")
     if facts:
         lines = "\n".join(f"- {fact.content}" for fact in facts)
         sections.append(f"Known facts about this user (newest first):\n{lines}")

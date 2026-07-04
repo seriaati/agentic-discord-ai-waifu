@@ -8,6 +8,7 @@ from app.agent import generate_reply
 from app.db.models import Persona
 from app.services.memory import get_or_create_user
 from app.services.webhook import send_as_persona
+from app.utils.misc import get_utc8_now
 
 if TYPE_CHECKING:
     from app.core.bot import MyBot
@@ -51,7 +52,8 @@ class Chat(commands.Cog):
 
         user = await get_or_create_user(message.author.id)
         user.last_persona = persona
-        await user.save(update_fields=["last_persona_id"])
+        user.last_chat_at = get_utc8_now()
+        await user.save(update_fields=["last_persona_id", "last_chat_at"])
 
         try:
             async with message.channel.typing():
