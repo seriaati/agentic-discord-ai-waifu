@@ -11,6 +11,7 @@ class Persona(Model):
     avatar_url = fields.TextField(null=True)
     personality = fields.TextField()
     facts = fields.TextField(null=True)
+    context_cleared_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
 
