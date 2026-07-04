@@ -50,8 +50,8 @@ class Chat(commands.Cog):
             return
 
         user = await get_or_create_user(message.author.id)
-        user.last_channel_id = message.channel.id
-        await user.save(update_fields=["last_channel_id"])
+        user.last_persona = persona
+        await user.save(update_fields=["last_persona_id"])
 
         try:
             async with message.channel.typing():

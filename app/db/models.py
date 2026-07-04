@@ -35,7 +35,9 @@ class DiaryEntry(Model):
 class User(Model):
     id = fields.IntField(primary_key=True)
     discord_id = fields.BigIntField(unique=True, db_index=True)
-    last_channel_id = fields.BigIntField(null=True)
+    last_persona: fields.ForeignKeyNullableRelation[Persona] = fields.ForeignKeyField(
+        "models.Persona", related_name=False, null=True, on_delete=fields.OnDelete.SET_NULL
+    )
     observe_opt_in = fields.BooleanField(default=False)
     proactive_opt_in = fields.BooleanField(default=False)
     last_proactive_at = fields.DatetimeField(null=True)
@@ -66,7 +68,9 @@ class Reminder(Model):
     user: fields.ForeignKeyRelation[User] = fields.ForeignKeyField(
         "models.User", related_name="reminders"
     )
-    channel_id = fields.BigIntField()
+    persona: fields.ForeignKeyRelation[Persona] = fields.ForeignKeyField(
+        "models.Persona", related_name="reminders"
+    )
     content = fields.TextField()
     due_at = fields.DatetimeField(db_index=True)
     delivered = fields.BooleanField(default=False)

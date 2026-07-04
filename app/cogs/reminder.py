@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands, tasks
 from loguru import logger
 
-from app.db.models import Persona, Reminder
+from app.db.models import Reminder
 from app.services.webhook import send_as_persona
 from app.utils.misc import get_utc8_now
 
@@ -28,7 +28,7 @@ class ReminderCog(commands.Cog):
         due = (
             await Reminder.filter(delivered=False, due_at__lte=get_utc8_now())
             .order_by("due_at")
-            .prefetch_related("user")
+            .prefetch_related("user", "persona")
         )
         for reminder in due:
             try:
@@ -45,16 +45,14 @@ class ReminderCog(commands.Cog):
         await self.bot.wait_until_ready()
 
     async def _deliver(self, reminder: Reminder) -> None:
-        channel = self.bot.get_channel(reminder.channel_id)
+        persona = reminder.persona
+        channel = self.bot.get_channel(persona.channel_id)
         if channel is None or not isinstance(channel, discord.abc.Messageable):
-            logger.info(f"Reminder channel {reminder.channel_id} unavailable, skipping")
+            logger.info(f"Reminder channel {persona.channel_id} unavailable, skipping")
             return
 
         content = f"<@{reminder.user.discord_id}> ⏰ {reminder.content}"[:DISCORD_MESSAGE_LIMIT]
-        persona = await Persona.get_or_none(
-            discord_id=reminder.user.discord_id, channel_id=reminder.channel_id
-        )
-        if persona is None or not await send_as_persona(channel, persona, content):
+        if not await send_as_persona(channel, persona, content):
             await channel.send(content)
         logger.info(f"Delivered reminder {reminder.id} to user {reminder.user.discord_id}")
 

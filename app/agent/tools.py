@@ -82,12 +82,12 @@ def create_memory_server(user: User, persona: Persona | None = None) -> McpSdkSe
                 "content": [{"type": "text", "text": "That time is in the past."}],
                 "is_error": True,
             }
-        if user.last_channel_id is None:
+        if persona is None:
             return {
-                "content": [{"type": "text", "text": "No channel to deliver the reminder to."}],
+                "content": [{"type": "text", "text": "No persona to deliver the reminder to."}],
                 "is_error": True,
             }
-        await add_reminder(user, args["content"], due_at, user.last_channel_id)
+        await add_reminder(user, args["content"], due_at, persona)
         return {"content": [{"type": "text", "text": f"Reminder set for {due_at:%Y-%m-%d %H:%M}."}]}
 
     tools = [remember_fact, remember_date, set_reminder]

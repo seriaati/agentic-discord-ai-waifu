@@ -23,9 +23,9 @@ async def add_important_date(user: User, label: str, date: datetime.date) -> Imp
 
 
 async def add_reminder(
-    user: User, content: str, due_at: datetime.datetime, channel_id: int
+    user: User, content: str, due_at: datetime.datetime, persona: Persona
 ) -> Reminder:
-    return await Reminder.create(user=user, content=content, due_at=due_at, channel_id=channel_id)
+    return await Reminder.create(user=user, content=content, due_at=due_at, persona=persona)
 
 
 async def add_observation(user: User, kind: str, summary: str) -> Observation:

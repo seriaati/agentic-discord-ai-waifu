@@ -8,7 +8,7 @@ from loguru import logger
 
 from app.agent.proactive import decide_proactive_message
 from app.core.embeds import DefaultEmbed
-from app.db.models import Observation, Persona, User
+from app.db.models import Observation, User
 from app.services.memory import get_or_create_user
 from app.services.webhook import send_as_persona
 from app.types import Interaction  # noqa: TC001
@@ -49,10 +49,10 @@ class ProactiveCog(commands.Cog):
                 handled=False,
                 created_at__gte=now - OBSERVATION_MAX_AGE,
                 user__proactive_opt_in=True,
-                user__last_channel_id__isnull=False,
+                user__last_persona_id__isnull=False,
             )
             .order_by("created_at")
-            .prefetch_related("user")
+            .prefetch_related("user__last_persona")
         )
         candidates: dict[int, User] = {}
         for obs in observations:
@@ -85,9 +85,10 @@ class ProactiveCog(commands.Cog):
         if not observations:
             return
 
-        persona = await Persona.get_or_none(
-            discord_id=user.discord_id, channel_id=user.last_channel_id
-        )
+        persona = user.last_persona
+        if persona is None:
+            return
+
         try:
             message = await decide_proactive_message(user, persona, observations)
         finally:
@@ -97,17 +98,17 @@ class ProactiveCog(commands.Cog):
             logger.info(f"Proactive agent chose to skip user {user.discord_id}")
             return
 
-        channel = self.bot.get_channel(user.last_channel_id)
+        channel = self.bot.get_channel(persona.channel_id)
         if channel is None or not isinstance(channel, discord.abc.Messageable):
-            logger.info(f"Proactive channel {user.last_channel_id} unavailable, skipping")
+            logger.info(f"Proactive channel {persona.channel_id} unavailable, skipping")
             return
 
         content = message[:DISCORD_MESSAGE_LIMIT]
-        if persona is None or not await send_as_persona(channel, persona, content):
+        if not await send_as_persona(channel, persona, content):
             await channel.send(content)
         user.last_proactive_at = now
         await user.save(update_fields=["last_proactive_at"])
-        logger.info(f"Sent proactive message to user {user.discord_id} in {user.last_channel_id}")
+        logger.info(f"Sent proactive message to user {user.discord_id} in {persona.channel_id}")
 
     @proactive.command(name="on", description="開啟主動訊息功能")
     async def proactive_on(self, i: Interaction) -> None:
@@ -116,7 +117,7 @@ class ProactiveCog(commands.Cog):
         await user.save(update_fields=["proactive_opt_in"])
         embed = DefaultEmbed(
             title="主動訊息功能已開啟",
-            description="我偶爾會在你最後和我說話的頻道主動找你聊天\n"
+            description="我偶爾會在你最後與角色對話的頻道主動找你聊天\n"
             "使用 `/proactive off` 隨時關閉",
         )
         await i.response.send_message(embed=embed, ephemeral=True)
