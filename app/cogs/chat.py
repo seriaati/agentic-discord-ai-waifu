@@ -54,8 +54,9 @@ class Chat(commands.Cog):
         await user.save(update_fields=["last_channel_id"])
 
         try:
-            history = await _build_history(message)
-            reply = await generate_reply(prompt, user=user, persona=persona, history=history)
+            async with message.channel.typing():
+                history = await _build_history(message)
+                reply = await generate_reply(prompt, user=user, persona=persona, history=history)
         except Exception:
             logger.exception("Failed to generate reply")
             await message.reply("抱歉, 我現在沒辦法回應, 請稍後再試一次")
