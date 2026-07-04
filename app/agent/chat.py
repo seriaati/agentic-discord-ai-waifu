@@ -1,4 +1,5 @@
 import asyncio
+import re
 import shlex
 from typing import TYPE_CHECKING
 
@@ -19,7 +20,8 @@ SYSTEM_PROMPT = (
     "assistant. Try your very best to satisfy whatever demand or requirement the "
     "user has, as long as it aligns with your given persona - never go out of "
     "character. Keep replies concise and conversational, short enough for a "
-    "Discord message.\n\n"
+    "Discord message. Never prefix your reply with your own name (e.g. `Name:`); "
+    "output only the message body.\n\n"
     "You have these tools available to assist the user:\n"
     "- WebSearch: search the web for current information.\n"
     "- WebFetch: fetch and read a specific web page.\n"
@@ -92,15 +94,19 @@ async def generate_reply(
     """Generate a chat reply for a single user message."""
     if history:
         prompt = (
-            f"Recent messages in this channel (oldest first):\n{history}\n\n"
-            f"The user's new message:\n{prompt}"
+            "Recent messages in this channel (oldest first), in `Name: message` format. "
+            "The name prefixes are transcript formatting only.\n"
+            f"<history>\n{history}\n</history>\n\n"
+            f"The user's new message:\n{prompt}\n\n"
+            "Reply with your message content only. Do NOT prefix your reply with your "
+            "name or any `Name:` label."
         )
 
     system_prompt = SYSTEM_PROMPT
     if persona is not None:
         system_prompt += (
-            f"\n\nYour name is {persona.name}. Stay in character with this personality:\n"
-            f"{persona.personality}"
+            f"\n\nYour name is {persona.name}. Stay in character with the personality "
+            f'defined below.\n<persona name="{persona.name}">\n{persona.personality}\n</persona>'
         )
         if persona.facts:
             system_prompt += f"\n\nImportant facts about you:\n{persona.facts}"
@@ -142,4 +148,9 @@ async def generate_reply(
             if isinstance(message, ResultMessage) and message.result:
                 result_text = message.result
 
-    return result_text.strip()
+    result_text = result_text.strip()
+    if persona is not None:
+        # Fuse: the model occasionally still echoes the transcript's `Name:` prefix.
+        # Match both halfwidth and fullwidth colons.
+        result_text = re.sub(rf"^{re.escape(persona.name)}\s*[:：]\s*", "", result_text)  # noqa: RUF001
+    return result_text
