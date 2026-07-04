@@ -10,6 +10,7 @@ dependencies = [
     "discord-py[speed]>=2.7.1",
     "jishaku>=2.6.3",
     "loguru>=0.7.3",
+    "opencc-python-reimplemented>=0.1.7",
     "pydantic-settings>=2.13.1",
     "python-dotenv>=1.2.2",
     "tortoise-orm[asyncpg]>=1.1.7",

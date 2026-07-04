@@ -5,7 +5,7 @@ from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 from app.agent.chat import WEB_TOOL_NAMES
 from app.core.settings import SETTINGS
 from app.services.memory import build_memory_context
-from app.utils.misc import get_utc8_now
+from app.utils.misc import get_utc8_now, to_traditional_chinese
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -89,7 +89,8 @@ async def _query_or_skip(system_prompt: str, prompt: str) -> str | None:
     result = result.strip()
     if not result or result.startswith("SKIP"):
         return None
-    return result
+    # Fuse: the model occasionally drifts into Simplified Chinese; force Traditional.
+    return to_traditional_chinese(result)
 
 
 async def decide_proactive_message(

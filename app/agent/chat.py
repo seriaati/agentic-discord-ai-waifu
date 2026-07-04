@@ -8,7 +8,7 @@ from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, McpServerConfi
 from app.agent.tools import DIARY_TOOL_NAMES, MEMORY_TOOL_NAMES, create_memory_server
 from app.core.settings import SETTINGS
 from app.services.memory import build_memory_context
-from app.utils.misc import get_utc8_now
+from app.utils.misc import get_utc8_now, to_traditional_chinese
 
 if TYPE_CHECKING:
     from app.db.models import Persona, User
@@ -181,4 +181,5 @@ async def generate_reply(
         # Fuse: the model occasionally still echoes the transcript's `Name:` prefix.
         # Match both halfwidth and fullwidth colons.
         result_text = re.sub(rf"^{re.escape(persona.name)}\s*[:：]\s*", "", result_text)  # noqa: RUF001
-    return result_text
+    # Fuse: long conversations drift into Simplified Chinese; force Traditional.
+    return to_traditional_chinese(result_text)
