@@ -55,6 +55,7 @@ async def decide_proactive_message(
     options = ClaudeAgentOptions(
         system_prompt=system_prompt,
         model=SETTINGS.chat_model,
+        strict_mcp_config=True,
         tools=WEB_TOOL_NAMES,
         allowed_tools=WEB_TOOL_NAMES,
     )
