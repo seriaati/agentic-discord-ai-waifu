@@ -117,4 +117,9 @@ async def build_memory_context(user: User, persona: Persona | None = None) -> st
         )
         sections.append(f"Your recent diary entries about this user:\n{lines}")
 
-    return "\n\n".join(sections)
+    header = (
+        "Background memory about this user, for your awareness only. Let it inform "
+        "your tone and what you know; do not turn it into advice or reminders, and "
+        "never repeat a reminder that already appears in the recent conversation."
+    )
+    return "\n\n".join([header, *sections])
