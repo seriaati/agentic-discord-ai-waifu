@@ -45,7 +45,9 @@ class User(Model):
     proactive_opt_in = fields.BooleanField(default=False)
     last_proactive_at = fields.DatetimeField(null=True)
     last_chat_at = fields.DatetimeField(null=True)
-    timezone = fields.CharField(max_length=64, default=DEFAULT_TIMEZONE)  # IANA name
+    timezone = fields.CharField(
+        max_length=64, default=DEFAULT_TIMEZONE, db_default=DEFAULT_TIMEZONE
+    )  # IANA name
     wake_time = fields.TimeField(null=True)  # user-local wall clock
     sleep_time = fields.TimeField(null=True)  # user-local wall clock
     last_morning_greeting = fields.DateField(null=True)  # date of the wake moment greeted

@@ -12,6 +12,6 @@ class Migration(migrations.Migration):
         ops.AddField(
             model_name="User",
             name="timezone",
-            field=fields.CharField(default="Asia/Taipei", max_length=64),
+            field=fields.CharField(default="Asia/Taipei", db_default="Asia/Taipei", max_length=64),
         )
     ]
