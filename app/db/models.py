@@ -13,6 +13,8 @@ class Persona(Model):
     avatar_url = fields.TextField(null=True)
     personality = fields.TextField()
     facts = fields.TextField(null=True)
+    # db_default backfills existing rows; a plain `default` emits no SQL DEFAULT in migrations
+    diary_enabled = fields.BooleanField(default=True, db_default=True)
     context_cleared_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)

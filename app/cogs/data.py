@@ -34,6 +34,7 @@ class PersonaData(pydantic.BaseModel):
     avatar_url: str | None = None
     personality: str
     facts: str | None = None
+    diary_enabled: bool = True
     created_at: datetime.datetime | None = None
     diary_entries: list[DiaryEntryData] = pydantic.Field(default_factory=list)
 
@@ -84,6 +85,7 @@ class DataCog(commands.Cog):
                     avatar_url=persona.avatar_url,
                     personality=persona.personality,
                     facts=persona.facts,
+                    diary_enabled=persona.diary_enabled,
                     created_at=persona.created_at,
                     diary_entries=[
                         DiaryEntryData(date=e.date, content=e.content, created_at=e.created_at)
@@ -151,6 +153,7 @@ class DataCog(commands.Cog):
                     avatar_url=p.avatar_url,
                     personality=p.personality,
                     facts=p.facts,
+                    diary_enabled=p.diary_enabled,
                 )
                 imported += 1
             for entry in p.diary_entries:

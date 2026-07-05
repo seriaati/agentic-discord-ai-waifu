@@ -150,7 +150,7 @@ async def generate_reply(
     if user is not None:
         system_prompt += MEMORY_INSTRUCTIONS
         allowed_tools = [*MEMORY_TOOL_NAMES, *WEB_TOOL_NAMES, *BROWSER_TOOL_NAMES]
-        if persona is not None:
+        if persona is not None and persona.diary_enabled:
             system_prompt += DIARY_INSTRUCTIONS
             allowed_tools += DIARY_TOOL_NAMES
         options = ClaudeAgentOptions(

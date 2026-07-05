@@ -85,7 +85,7 @@ async def build_memory_context(user: User, persona: Persona | None = None) -> st
         .limit(OBSERVATION_LIMIT)
     )
     diary_entries: list[DiaryEntry] = []
-    if persona is not None:
+    if persona is not None and persona.diary_enabled:
         diary_entries = (
             await DiaryEntry.filter(persona=persona).order_by("-date").limit(DIARY_CONTEXT_DAYS)
         )[::-1]

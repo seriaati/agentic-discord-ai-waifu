@@ -32,7 +32,8 @@ DIARY_TOOL_NAMES = ["mcp__memory__write_diary", "mcp__memory__read_diary"]
 def create_memory_server(user: User, persona: Persona | None = None) -> McpSdkServerConfig:
     """Build an in-process MCP server whose tools save memories for `user`.
 
-    When `persona` is given, diary tools scoped to that persona are included too.
+    When `persona` is given and its diary is enabled, diary tools scoped to that
+    persona are included too.
     """
 
     @tool(
@@ -124,7 +125,7 @@ def create_memory_server(user: User, persona: Persona | None = None) -> McpSdkSe
         return {"content": [{"type": "text", "text": "Schedule saved."}]}
 
     tools = [remember_fact, remember_date, set_reminder, set_schedule]
-    if persona is not None:
+    if persona is not None and persona.diary_enabled:
         tools += _create_diary_tools(user, persona)
     return create_sdk_mcp_server(name="memory", version="1.0.0", tools=tools)
 

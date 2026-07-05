@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from app.core.embeds import ErrorEmbed
+from app.core.embeds import DefaultEmbed, ErrorEmbed
 from app.db.models import DiaryEntry, Persona
 from app.types import Interaction  # noqa: TC001
 from app.ui import ActionRow, Button, Container, LayoutView, Select, TextDisplay
@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 # LayoutView caps total text at 4000 characters; leave headroom for the heading lines
 DIARY_CONTENT_LIMIT = 3500
+CHOICE_LIMIT = 25  # Discord autocomplete choice count limit
 
 
 class DiaryView(LayoutView):
@@ -102,6 +103,47 @@ class DiaryCog(commands.Cog):
             await i.response.send_message(embed=embed, ephemeral=True)
             return
         await i.response.send_message(view=DiaryView(personas), ephemeral=True)
+
+    @app_commands.command(name="diary-toggle", description="開啟或關閉角色的日記功能")
+    @app_commands.guild_only()
+    @app_commands.describe(persona="要設定的角色 (從清單中選擇)", enabled="是否啟用日記功能")
+    async def diary_toggle(self, i: Interaction, persona: str, enabled: bool) -> None:
+        selected = (
+            await Persona.get_or_none(id=int(persona), discord_id=i.user.id)
+            if persona.isdigit()
+            else None
+        )
+        if selected is None:
+            embed = ErrorEmbed(title="找不到角色", description="請從自動完成清單中選擇角色")
+            await i.response.send_message(embed=embed, ephemeral=True)
+            return
+        selected.diary_enabled = enabled
+        await selected.save(update_fields=["diary_enabled"])
+        if enabled:
+            embed = DefaultEmbed(
+                title="日記功能已開啟", description=f"**{selected.name}** 會繼續撰寫與閱讀日記"
+            )
+        else:
+            embed = DefaultEmbed(
+                title="日記功能已關閉",
+                description=(
+                    f"**{selected.name}** 將不再撰寫或閱讀日記\n已寫下的日記仍可用 `/diary` 查看"
+                ),
+            )
+        await i.response.send_message(embed=embed, ephemeral=True)
+
+    @diary_toggle.autocomplete("persona")
+    async def diary_toggle_autocomplete(
+        self, i: Interaction, current: str
+    ) -> list[app_commands.Choice[str]]:
+        personas = await Persona.filter(discord_id=i.user.id, guild_id=i.guild_id).order_by(
+            "created_at"
+        )
+        return [
+            app_commands.Choice(name=p.name, value=str(p.id))
+            for p in personas
+            if current.lower() in p.name.lower()
+        ][:CHOICE_LIMIT]
 
 
 async def setup(bot: MyBot) -> None:
